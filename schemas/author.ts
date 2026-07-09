@@ -54,6 +54,39 @@ export const author = defineType({
         defineField({ name: "email", title: "Email", type: "string" }),
       ],
     }),
+    defineField({
+      name: "resumes",
+      title: "Résumés",
+      description:
+        "Upload one or more résumés (PDFs). Each gets a label shown in the hero download menu.",
+      type: "array",
+      of: [
+        defineField({
+          name: "resume",
+          title: "Résumé",
+          type: "object",
+          fields: [
+            defineField({
+              name: "label",
+              title: "Label",
+              type: "string",
+              description: 'e.g. "Frontend", "Backend", "General"',
+              validation: (rule) => rule.required(),
+            }),
+            defineField({
+              name: "file",
+              title: "PDF File",
+              type: "file",
+              options: { accept: ".pdf" },
+              validation: (rule) => rule.required(),
+            }),
+          ],
+          preview: {
+            select: { title: "label", subtitle: "file.asset.originalFilename" },
+          },
+        }),
+      ],
+    }),
   ],
   preview: {
     select: { title: "name", media: "image" },

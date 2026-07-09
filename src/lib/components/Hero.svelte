@@ -2,6 +2,12 @@
 	import { urlFor } from '$lib/sanity/image';
 	import { enter } from '$lib/actions/reveal';
 
+	interface Resume {
+		label?: string;
+		url?: string;
+		filename?: string;
+	}
+
 	interface Props {
 		author: {
 			name?: string;
@@ -14,10 +20,23 @@
 				linkedin?: string;
 				email?: string;
 			};
+			resumes?: Resume[];
 		} | null;
 	}
 
 	let { author }: Props = $props();
+
+	const resumes = $derived((author?.resumes ?? []).filter((r) => r.url));
+
+	let menuOpen = $state(false);
+
+	function toggleMenu() {
+		menuOpen = !menuOpen;
+	}
+
+	function closeMenu() {
+		menuOpen = false;
+	}
 </script>
 
 <section class="flex flex-col justify-center px-6 pt-24 pb-16 md:min-h-screen">
@@ -49,16 +68,61 @@
 				{/if}
 
 				<div class="flex items-center gap-6 flex-wrap">
-					<a
-						href="/resume.pdf"
-						download
-						class="inline-flex items-center gap-2 text-sm text-[var(--color-text)] border-b border-[var(--color-text)] pb-0.5 hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
-					>
-						download résumé
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-						</svg>
-					</a>
+					{#if resumes.length > 1}
+						<div class="relative">
+							<button
+								type="button"
+								onclick={toggleMenu}
+								aria-haspopup="menu"
+								aria-expanded={menuOpen}
+								class="inline-flex items-center gap-2 text-sm text-[var(--color-text)] border-b border-[var(--color-text)] pb-0.5 hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
+							>
+								download résumé
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 transition-transform {menuOpen ? 'rotate-180' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+								</svg>
+							</button>
+
+							{#if menuOpen}
+								<button
+									type="button"
+									tabindex="-1"
+									aria-hidden="true"
+									class="fixed inset-0 z-0 cursor-default"
+									onclick={closeMenu}
+								></button>
+								<div
+									role="menu"
+									class="absolute left-0 top-full mt-2 z-10 min-w-[12rem] rounded-lg border border-[var(--color-surface-border)] bg-[var(--color-surface-alt)] py-1 shadow-lg"
+								>
+									{#each resumes as resume (resume.url)}
+										<a
+											role="menuitem"
+											href="{resume.url}?dl={resume.filename ?? ''}"
+											onclick={closeMenu}
+											class="flex items-center justify-between gap-3 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-muted)]/10 hover:text-[var(--color-primary)] transition-colors"
+										>
+											{resume.label ?? 'Résumé'}
+											<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+											</svg>
+										</a>
+									{/each}
+								</div>
+							{/if}
+						</div>
+					{:else}
+						<a
+							href={resumes.length === 1 ? `${resumes[0].url}?dl=${resumes[0].filename ?? ''}` : '/resume.pdf'}
+							download
+							class="inline-flex items-center gap-2 text-sm text-[var(--color-text)] border-b border-[var(--color-text)] pb-0.5 hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
+						>
+							download résumé
+							<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+							</svg>
+						</a>
+					{/if}
 
 					{#if author?.socialLinks}
 						<div class="flex items-center gap-5">

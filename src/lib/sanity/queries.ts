@@ -118,6 +118,11 @@ export const authorQuery = defineQuery(`
     "bioText": pt::text(bio),
     image,
     skills,
-    socialLinks
+    socialLinks,
+    resumes[]{
+      label,
+      "url": file.asset->url,
+      "filename": file.asset->originalFilename
+    }
   }
 `);
