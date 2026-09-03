@@ -1,11 +1,12 @@
-node_modules
+node_modules*
 
+.claude*
 # Output
 .output
-.vercel
+.vercel*
 .netlify
 .wrangler
-/.svelte-kit
+/.svelte-kit*
 /build
 
 # OS
