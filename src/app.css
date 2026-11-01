@@ -62,6 +62,16 @@ body {
   }
 }
 
+/* Running text is justified and hyphenated; headings, labels and lists stay ragged. */
+p,
+.justify {
+  text-align: justify;
+  text-justify: inter-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: anywhere;
+}
+
 /* Section labels: small italic, muted. */
 .label {
   color: var(--color-muted);
