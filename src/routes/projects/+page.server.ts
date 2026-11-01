@@ -1,8 +1,8 @@
 import { client } from "$lib/sanity/client";
 import { projectsQuery } from "$lib/sanity/queries";
-import type { PageLoad } from "./$types";
+import type { PageServerLoad } from "./$types";
 
-export const load: PageLoad = async () => {
+export const load: PageServerLoad = async () => {
   try {
     const projects = await client.fetch(projectsQuery);
     return { projects: projects ?? [] };

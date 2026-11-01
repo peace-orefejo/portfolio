@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { marked } from 'marked';
+	import { linkLabel } from '$lib';
 	import { urlFor } from '$lib/sanity/image';
 
 	type ImageMedia = {
@@ -26,6 +27,7 @@
 				year?: string;
 				role?: string;
 				description: string;
+				hardPart?: string;
 				summary?: string;
 				highlights?: string[];
 				body?: string;
@@ -56,24 +58,79 @@
 				const id = url.pathname.split('/').filter(Boolean).pop();
 				if (id) return { kind: 'iframe', src: `https://player.vimeo.com/video/${id}` };
 			}
-		} catch {
-			// fall through to file
-		}
+		} catch {}
 		return { kind: 'file', src: rawUrl };
 	}
 
-	const summaryParagraphs = $derived(
-		(project.summary ?? '')
-			.split(/\n\s*\n/)
-			.map((p: string) => p.trim())
-			.filter(Boolean)
-	);
-
-	const bodyHtml = $derived.by(() => {
-		const body = project.body;
-		if (typeof body !== 'string' || !body.trim()) return '';
-		return marked.parse(body) as string;
+	const projectLinks = $derived.by(() => {
+		const out: { label: string; href: string }[] = [];
+		if (project.liveUrl) out.push({ label: `${linkLabel(project.liveUrl)} ↗`, href: project.liveUrl });
+		if (project.repoUrl) out.push({ label: `${linkLabel(project.repoUrl, 'code')} ↗`, href: project.repoUrl });
+		return out;
 	});
+
+	const meta = $derived([project.year, project.role].filter(Boolean).join(' · '));
+
+	const heroMedia = $derived(project.media?.[0]);
+
+	function slugify(text: string) {
+		return text
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-|-$/g, '');
+	}
+
+	type Part = { kind: 'html'; html: string } | { kind: 'media'; item: MediaItem };
+
+	const MEDIA_TOKEN = /^\s*\{\{\s*media:(\d+)\s*\}\}\s*$/;
+
+	const parsed = $derived.by(() => {
+		const body = typeof project.body === 'string' ? project.body : '';
+		const media: MediaItem[] = project.media ?? [];
+		const used = new Set<number>([0]);
+
+		function toParts(markdown: string): Part[] {
+			const parts: Part[] = [];
+			let buffer: string[] = [];
+			const flush = () => {
+				const text = buffer.join('\n').trim();
+				if (text) parts.push({ kind: 'html', html: marked.parse(text) as string });
+				buffer = [];
+			};
+			for (const line of markdown.split('\n')) {
+				const match = line.match(MEDIA_TOKEN);
+				const index = match ? Number(match[1]) - 1 : -1;
+				if (match && media[index]) {
+					flush();
+					used.add(index);
+					parts.push({ kind: 'media', item: media[index] });
+				} else {
+					buffer.push(line);
+				}
+			}
+			flush();
+			return parts;
+		}
+
+		const chunks = body.split(/^## +/m);
+		const intro = toParts(chunks.shift() ?? '');
+		const sections = chunks.map((chunk: string) => {
+			const newline = chunk.indexOf('\n');
+			const title = (newline === -1 ? chunk : chunk.slice(0, newline)).trim();
+			const content = newline === -1 ? '' : chunk.slice(newline + 1);
+			return { id: slugify(title), title, parts: toParts(content) };
+		});
+		const rest = media.filter((_, i) => !used.has(i));
+		if (sections.length) {
+			rest.forEach((item, k) => {
+				const at = Math.max(0, Math.round(((k + 1) * sections.length) / (rest.length + 1)) - 1);
+				sections[at].parts.push({ kind: 'media', item });
+			});
+			return { intro, sections, rest: [] as MediaItem[] };
+		}
+		return { intro, sections, rest };
+	});
+
 </script>
 
 <svelte:head>
@@ -91,166 +148,257 @@
 	<link rel="canonical" href="https://adepejuorefejo.com/projects/{project.slug?.current}" />
 </svelte:head>
 
-<article class="py-20 md:py-28 px-6">
-	<div class="mx-auto max-w-3xl">
-		<!-- Back link -->
-		<a
-			href="/projects"
-			class="inline-flex items-center gap-2 text-xs tracking-widest uppercase text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors mb-12"
-		>
-			<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-			</svg>
-			all projects
-		</a>
+{#snippet mediaFigure(item: MediaItem, cls: string)}
+	{#if item._type === 'image' && item.asset}
+		<figure class={cls}>
+			<img
+				src={urlFor(item).width(1440).fit('max').auto('format').url()}
+				alt={item.alt ?? item.caption ?? ''}
+				loading={cls === 'hero-figure' ? 'eager' : 'lazy'}
+			/>
+			{#if item.caption}<figcaption>{item.caption}</figcaption>{/if}
+		</figure>
+	{:else if item._type === 'video' && item.url}
+		{@const embed = videoEmbed(item.url)}
+		<figure class={cls}>
+			{#if embed.kind === 'iframe'}
+				<div class="video">
+					<iframe
+						src={embed.src}
+						title={item.caption ?? 'Video'}
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+						allowfullscreen
+					></iframe>
+				</div>
+			{:else}
+				<video src={embed.src} controls playsinline>
+					<track kind="captions" />
+				</video>
+			{/if}
+			{#if item.caption}<figcaption>{item.caption}</figcaption>{/if}
+		</figure>
+	{/if}
+{/snippet}
 
-		<!-- Meta row -->
-		<div class="flex items-center gap-4 mb-6 text-xs tracking-widest uppercase text-[var(--color-muted)]">
-			{#if project.year}
-				<span>{project.year}</span>
-			{/if}
-			{#if project.year && project.role}
-				<span aria-hidden="true">·</span>
-			{/if}
-			{#if project.role}
-				<span>{project.role}</span>
-			{/if}
+{#snippet parts(list: Part[])}
+	{#each list as part, i (i)}
+		{#if part.kind === 'html'}
+			<div class="md">{@html part.html}</div>
+		{:else}
+			{@render mediaFigure(part.item, 'inline-figure')}
+		{/if}
+	{/each}
+{/snippet}
+
+<div class="case site-container">
+	<article>
+		<div class="head">
+			<h1>{project.title.trim()}</h1>
+			<div class="meta mono">
+				{meta}{#each projectLinks as link, i (link.href)}{meta || i > 0 ? ' · ' : ''}<a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}</a>{/each}
+			</div>
 		</div>
 
-		<!-- Title -->
-		<h1 class="text-4xl sm:text-5xl md:text-6xl font-medium tracking-tight text-[var(--color-text)] leading-[1.02] mb-6">
-			{project.title}
-		</h1>
+		{#if project.description}<p class="lede">{project.description}</p>{/if}
 
-		<!-- Tagline -->
-		<p class="text-lg md:text-xl text-[var(--color-muted)] leading-relaxed mb-10 max-w-2xl">
-			{project.description}
-		</p>
-
-		<!-- Action links -->
-		{#if project.liveUrl || project.repoUrl}
-			<div class="flex items-center gap-6 flex-wrap mb-14 pb-14 border-b border-[var(--color-surface-border)]">
-				{#if project.liveUrl}
-					<a
-						href={project.liveUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="inline-flex items-center gap-2 text-sm text-[var(--color-text)] border-b border-[var(--color-text)] pb-0.5 hover:text-[var(--color-primary)] hover:border-[var(--color-primary)] transition-colors"
-					>
-						visit live site
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 7L7 17M17 7H9M17 7v8" />
-						</svg>
-					</a>
-				{/if}
-				{#if project.repoUrl}
-					<a
-						href={project.repoUrl}
-						target="_blank"
-						rel="noopener noreferrer"
-						class="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors"
-					>
-						<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-							<path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z" />
-						</svg>
-						view source
-					</a>
-				{/if}
-			</div>
+		{#if heroMedia}
+			{@render mediaFigure(heroMedia, 'hero-figure')}
 		{/if}
 
-		<!-- Media gallery -->
-		{#if project.media?.length}
-			<div class="flex flex-col gap-10 mb-14">
-				{#each project.media as item (item._key)}
-					{#if item._type === 'image' && item.asset}
-						<figure class="flex flex-col gap-3">
-							<div class="overflow-hidden rounded-xl border border-[var(--color-surface-border)]">
-								<img
-									src={urlFor(item).width(1400).fit('max').quality(90).url()}
-									alt={item.alt ?? item.caption ?? ''}
-									class="w-full h-auto"
-									loading="lazy"
-								/>
-							</div>
-							{#if item.caption}
-								<figcaption class="text-xs tracking-wide text-[var(--color-muted)] px-1">
-									{item.caption}
-								</figcaption>
-							{/if}
-						</figure>
-					{:else if item._type === 'video' && item.url}
-						{@const embed = videoEmbed(item.url)}
-						<figure class="flex flex-col gap-3">
-							<div class="overflow-hidden rounded-xl border border-[var(--color-surface-border)] bg-[var(--color-surface-alt)]">
-								{#if embed.kind === 'iframe'}
-									<div class="aspect-video">
-										<iframe
-											src={embed.src}
-											title={item.caption ?? 'Video'}
-											allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-											allowfullscreen
-											class="w-full h-full"
-										></iframe>
-									</div>
-								{:else}
-									<video src={embed.src} controls playsinline class="w-full h-auto">
-										<track kind="captions" />
-									</video>
-								{/if}
-							</div>
-							{#if item.caption}
-								<figcaption class="text-xs tracking-wide text-[var(--color-muted)] px-1">
-									{item.caption}
-								</figcaption>
-							{/if}
-						</figure>
-					{/if}
-				{/each}
-			</div>
+		{#if parsed.intro.length}
+			<div class="block">{@render parts(parsed.intro)}</div>
 		{/if}
 
-		<!-- Summary paragraphs -->
-		{#if summaryParagraphs.length > 0}
-			<div class="flex flex-col gap-5 text-base md:text-lg text-[var(--color-text)] leading-relaxed mb-14">
-				{#each summaryParagraphs as para}
-					<p>{para}</p>
-				{/each}
-			</div>
-		{/if}
+		{#each parsed.sections as section (section.id)}
+			<section id={section.id} class="block">
+				<span class="label">{section.title}</span>
+				{@render parts(section.parts)}
+			</section>
+		{/each}
 
-		<!-- Highlights -->
-		{#if project.highlights?.length}
-			<div class="mb-14">
-				<h2 class="text-xs tracking-widest uppercase text-[var(--color-muted)] mb-5">highlights</h2>
-				<ul class="flex flex-col gap-3 text-base text-[var(--color-text)] leading-relaxed">
-					{#each project.highlights as item}
-						<li class="flex gap-3">
-							<span class="text-[var(--color-primary)] shrink-0" aria-hidden="true">→</span>
-							<span>{item}</span>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
+		{#each parsed.rest as item (item._key)}
+			{@render mediaFigure(item, 'more-figure')}
+		{/each}
 
-		<!-- Body (long-form case study) -->
-		{#if bodyHtml}
-			<div class="prose prose-lg max-w-none mb-14">
-				{@html bodyHtml}
-			</div>
-		{/if}
-
-		<!-- Tags -->
 		{#if project.tags?.length}
-			<div class="pt-10 border-t border-[var(--color-surface-border)]">
-				<h2 class="text-xs tracking-widest uppercase text-[var(--color-muted)] mb-4">built with</h2>
-				<div class="flex flex-wrap gap-x-4 gap-y-2 text-sm text-[var(--color-muted)]">
-					{#each project.tags as tag}
-						<span>#{tag}</span>
-					{/each}
-				</div>
-			</div>
+			<section id="stack" class="stack">
+				<span class="label">Stack</span>
+				<div class="stack-list mono">{project.tags.map((t: string) => t.trim()).join(' · ')}</div>
+			</section>
 		{/if}
-	</div>
-</article>
+	</article>
+</div>
+
+<style>
+	.case {
+		padding-top: 48px;
+	}
+
+	a {
+		color: var(--color-text);
+		text-decoration: none;
+	}
+
+	a:hover {
+		color: var(--color-primary);
+	}
+
+	article {
+		display: flex;
+		flex-direction: column;
+		gap: 64px;
+	}
+
+	.head {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	h1 {
+		margin: 0;
+		font-family: var(--font-display);
+		font-weight: 400;
+		font-size: 56px;
+		line-height: 1.05;
+		letter-spacing: -0.01em;
+	}
+
+	.mono {
+		font-family: var(--font-mono);
+		font-size: 13px;
+		line-height: 1.7;
+		color: var(--color-muted);
+	}
+
+	.meta a {
+		color: var(--color-muted);
+	}
+
+	.meta a:hover {
+		color: var(--color-primary);
+	}
+
+	.lede {
+		margin: 0;
+		font-size: 22px;
+		line-height: 1.5;
+	}
+
+	figure {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+		margin: 0;
+	}
+
+	figure img,
+	figure video,
+	.video {
+		width: 100%;
+		height: auto;
+		box-sizing: border-box;
+		border: 1px solid var(--color-surface-border);
+		display: block;
+	}
+
+	.video {
+		aspect-ratio: 16 / 9;
+	}
+
+	.video iframe {
+		width: 100%;
+		height: 100%;
+		border: 0;
+	}
+
+	figcaption {
+		color: var(--color-muted);
+		font-size: 14px;
+		font-style: italic;
+	}
+
+	.block {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.md :global(p) {
+		margin: 0 0 16px 0;
+	}
+
+	.md :global(p:last-child) {
+		margin-bottom: 0;
+	}
+
+	.md :global(h3) {
+		margin: 12px 0 0 0;
+		font-size: 18px;
+		font-weight: 500;
+		line-height: 1.6;
+	}
+
+	.md :global(h3 + p) {
+		color: var(--color-muted);
+	}
+
+	.md :global(a) {
+		color: var(--color-text);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-thickness: 1px;
+	}
+
+	.md :global(a:hover) {
+		color: var(--color-primary);
+	}
+
+	.md :global(code) {
+		font-family: var(--font-mono);
+		font-size: 0.85em;
+	}
+
+	.md :global(pre) {
+		margin: 0 0 16px 0;
+		padding: 20px 24px;
+		border: 1px solid var(--color-surface-border);
+		background: var(--color-surface-alt);
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: 13px;
+		line-height: 1.6;
+	}
+
+	.md :global(ul),
+	.md :global(ol) {
+		margin: 0 0 16px 0;
+		padding-left: 1.25em;
+	}
+
+	.inline-figure {
+		margin-top: 8px;
+	}
+
+	.stack {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding-top: 24px;
+		border-top: 1px solid var(--color-surface-border);
+	}
+
+	@media (max-width: 767px) {
+		h1 {
+			font-size: 44px;
+		}
+
+		.lede {
+			font-size: 20px;
+		}
+
+		article {
+			gap: 56px;
+		}
+	}
+</style>

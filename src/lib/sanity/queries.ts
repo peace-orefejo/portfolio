@@ -28,6 +28,9 @@ export const featuredProjectsQuery = defineQuery(`
     year,
     role,
     description,
+    hardPart,
+    snippet,
+    "cover": media[_type == "image"][0]{ asset, alt, caption, hotspot, crop },
     summary,
     highlights,
     tags,
@@ -44,6 +47,7 @@ export const projectBySlugQuery = defineQuery(`
     year,
     role,
     description,
+    hardPart,
     summary,
     highlights,
     body,
@@ -53,7 +57,9 @@ export const projectBySlugQuery = defineQuery(`
       caption,
       alt,
       url,
-      asset
+      asset,
+      hotspot,
+      crop
     },
     tags,
     liveUrl,

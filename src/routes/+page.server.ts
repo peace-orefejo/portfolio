@@ -4,9 +4,9 @@ import {
   featuredProjectsQuery,
   postsQuery,
 } from "$lib/sanity/queries";
-import type { PageLoad } from "./$types";
+import type { PageServerLoad } from "./$types";
 
-export const load: PageLoad = async () => {
+export const load: PageServerLoad = async () => {
   try {
     const [author, featuredProjects, allPosts] = await Promise.all([
       client.fetch(authorQuery),

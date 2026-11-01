@@ -39,98 +39,39 @@
   })}</script>`}
 </svelte:head>
 
-<article class="py-24 px-6">
-  <div class="mx-auto max-w-3xl">
-    <!-- Back link -->
-    <a
-      href="/blog"
-      class="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors mb-10"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        class="h-4 w-4"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M15 19l-7-7 7-7"
-        />
-      </svg>
-      All posts
-    </a>
+<article class="site-container post">
+  <header class="head">
+    <h1>{data.post.title}</h1>
+    <div class="meta mono"><time>{formatDate(data.post.publishedAt)}</time>{#if data.post.tags?.length} · {data.post.tags.join(' · ')}{/if}</div>
+  </header>
 
-    <!-- Header -->
-    <header class="mb-10">
-      {#if data.post.tags?.length}
-        <div class="flex flex-wrap gap-2 mb-4">
-          {#each data.post.tags as tag}
-            <span
-              class="text-xs px-2 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-medium"
-            >
-              {tag}
-            </span>
-          {/each}
-        </div>
-      {/if}
+  {#if data.post.excerpt}
+    <p class="lede">{data.post.excerpt}</p>
+  {/if}
 
-      <h1
-        class="text-4xl sm:text-5xl font-bold text-[var(--color-text)] leading-tight mb-4"
-      >
-        {data.post.title}
-      </h1>
+  {#if data.post.coverImage}
+    <figure>
+      <img
+        src={urlFor(data.post.coverImage).width(1280).fit("max").auto("format").url()}
+        alt={data.post.title}
+      />
+    </figure>
+  {/if}
 
-      {#if data.post.excerpt}
-        <p class="text-xl text-[var(--color-muted)] leading-relaxed mb-6">
-          {data.post.excerpt}
-        </p>
-      {/if}
-
-      <div class="flex items-center gap-4 text-sm text-[var(--color-muted)]">
-        {#if data.post.author}
-          <div class="flex items-center gap-2">
-            {#if data.post.author.image}
-              <img
-                src={urlFor(data.post.author.image)
-                  .width(32)
-                  .height(32)
-                  .fit("crop")
-                  .url()}
-                alt={data.post.author.name}
-                class="w-8 h-8 rounded-full"
-              />
-            {/if}
-            <span>{data.post.author.name}</span>
-          </div>
-          <span class="text-[var(--color-surface-border)]">·</span>
-        {/if}
-        <time>{formatDate(data.post.publishedAt)}</time>
-      </div>
-    </header>
-
-    <!-- Cover image -->
-    {#if data.post.coverImage}
-      <div class="mb-10 rounded-xl overflow-hidden">
-        <img
-          src={urlFor(data.post.coverImage)
-            .width(900)
-            .height(500)
-            .fit("crop")
-            .url()}
-          alt={data.post.title}
-          class="w-full"
-        />
-      </div>
-    {/if}
-
-    <!-- Body -->
-    {#if data.bodyHtml}
-      <div class="prose prose-lg prose-full max-w-none text-justify hyphens-auto">
-        {@html data.bodyHtml}
-      </div>
-    {/if}
-  </div>
+  {#if data.bodyHtml}
+    <div class="prose prose-full max-w-none">
+      {@html data.bodyHtml}
+    </div>
+  {/if}
 </article>
+
+<style>
+  .post { display: flex; flex-direction: column; gap: 40px; padding-top: 48px; }
+  .head { display: flex; flex-direction: column; gap: 10px; }
+  h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 44px; line-height: 1.1; letter-spacing: -0.01em; }
+  .mono { font-family: var(--font-mono); font-size: 13px; line-height: 1.7; color: var(--color-muted); }
+  .lede { margin: 0; font-size: 22px; line-height: 1.5; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border: 1px solid var(--color-surface-border); }
+  @media (max-width: 767px) { h1 { font-size: 36px; } .lede { font-size: 20px; } }
+</style>

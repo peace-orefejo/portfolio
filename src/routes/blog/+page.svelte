@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BlogPostCard from '$lib/components/BlogPostCard.svelte';
+	import { formatDateShort } from '$lib/utils/date';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -23,33 +23,28 @@
 	<link rel="canonical" href="https://adepejuorefejo.com/blog" />
 </svelte:head>
 
-<div class="py-16 md:py-24 px-6 pt-28 md:pt-32">
-	<div class="mx-auto max-w-6xl">
-
-		<!-- Header -->
-		<div class="mb-14 md:mb-20">
-			<h1 class="text-[clamp(2.5rem,7vw,6rem)] font-bold leading-[0.92] tracking-tight text-[var(--color-text)]">
-				writing.
-			</h1>
-			<p class="text-sm font-light text-[var(--color-muted)] mt-4">thoughts on engineering, systems, and things i find interesting.</p>
-			{#if data.preview}
-				<span class="inline-flex items-center gap-1.5 mt-4 text-xs tracking-widest uppercase text-[var(--color-primary)]">
-					<span class="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]"></span>
-					draft preview
-				</span>
-			{/if}
-		</div>
-
-		{#if data.posts?.length > 0}
-			<div class="flex flex-col gap-6">
-				{#each data.posts as post, i (post._id)}
-					<BlogPostCard {post} index={i} />
-				{/each}
-			</div>
-		{:else}
-			<p class="text-sm text-[var(--color-muted)]">
-				Nothing here yet — check back soon.
-			</p>
-		{/if}
-	</div>
+<div class="site-container page">
+	<span class="label">Writing{#if data.preview} · draft preview{/if}</span>
+	{#if data.posts?.length > 0}
+		{#each data.posts as post (post._id)}
+			<a href="/blog/{post.slug?.current}" class="row link">
+				<span class="muted mono">{formatDateShort(post.publishedAt ?? '')}</span>
+				<span>{post.title}</span>
+			</a>
+		{/each}
+	{:else}
+		<p class="muted">Nothing here yet.</p>
+	{/if}
 </div>
+
+<style>
+	.page { display: flex; flex-direction: column; gap: 20px; padding-top: 72px; }
+	a { color: var(--color-text); text-decoration: none; }
+	a:hover { color: var(--color-primary); }
+	.muted { color: var(--color-muted); }
+	.link:hover > span:not(.muted) { color: var(--color-primary); }
+	.link:hover .muted { color: var(--color-text); }
+	.mono { font-family: var(--font-mono); font-size: 13px; }
+	p { margin: 0; }
+	@media (max-width: 767px) { .page { padding-top: 56px; } }
+</style>

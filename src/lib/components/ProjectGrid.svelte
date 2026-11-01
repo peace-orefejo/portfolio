@@ -22,7 +22,7 @@
 	let { projects, showViewAll = false, title = 'work' }: Props = $props();
 </script>
 
-<section id="projects" class="py-24 px-6 border-t border-[var(--color-surface-border)]">
+<section id="projects" class="py-24 px-6">
 	<div class="mx-auto max-w-6xl">
 
 		<!-- Section label -->

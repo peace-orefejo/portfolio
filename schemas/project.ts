@@ -39,6 +39,21 @@ export const project = defineType({
       validation: (rule) => rule.required().max(200),
     }),
     defineField({
+      name: "hardPart",
+      title: "The hard part",
+      type: "string",
+      description:
+        'One sentence shown under the description on the homepage, e.g. "The hard part: …"',
+    }),
+    defineField({
+      name: "snippet",
+      title: "Terminal snippet",
+      type: "text",
+      rows: 12,
+      description:
+        "Optional terminal output shown on the homepage instead of the first image. Lines starting with $ are highlighted.",
+    }),
+    defineField({
       name: "summary",
       title: "Rich summary",
       type: "text",

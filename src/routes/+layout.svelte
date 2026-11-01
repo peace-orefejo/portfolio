@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import Nav from '$lib/components/Nav.svelte';
 	import Footer from '$lib/components/Footer.svelte';
-	import { enter } from '$lib/actions/reveal';
 
 	let { children } = $props();
 
@@ -39,9 +38,9 @@
 
 <div class="flex flex-col min-h-screen">
 	<Nav />
-	<main class="pt-16 flex-1">
+	<main class="flex-1">
 		{#key $page.url.pathname}
-			<div use:enter>
+			<div>
 				{@render children()}
 			</div>
 		{/key}
